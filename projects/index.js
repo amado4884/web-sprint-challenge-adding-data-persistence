@@ -2,21 +2,38 @@
 const knex = require("knex");
 const knexFile = require("../knexfile");
 const devMode = process.env.ENV_MODE || "development";
-const db = knex(knexFile[devMode])("projects");
+const db = knex(knexFile[devMode]);
+const { Model: Tasks } = require("../tasks");
+const { Model: Resources } = require("../resources");
 
-const find = async () => {
-  try {
-    return await db;
-  } catch (err) {
-    console.log("Could not find (projects): ", err.message);
-  }
+const find = () => {
+  return db("projects");
 };
 
 const findById = async (id) => {
+  return db("projects").where({ id }).first();
+};
+
+const getTasks = async (id) => {
   try {
-    return await db.where({ id }).first();
+    const tasks = await Tasks.findByProject(id);
+    return tasks.map((task) => {
+      delete task.project_id;
+      task.completed = task.completed == true ? true : false;
+      return task;
+    });
   } catch (err) {
-    console.log("Could not findById (projects): ", err.message);
+    console.log("Could not getTasks for Project: ", err.message);
+  }
+  return Tasks.findByProject(id);
+};
+
+const addProject = async (project) => {
+  try {
+    const [id] = await db("projects").insert(project);
+    return findById(id);
+  } catch (err) {
+    console.log("Could not add a new project", err.message);
   }
 };
 
@@ -43,6 +60,53 @@ Router.get("/", async (req, res) => {
   try {
     const projects = await find();
     return res.status(200).json(projects);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+Router.get("/:id", validateId, async (req, res) => {
+  try {
+    return res.status(200).json(req.project);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+Router.get("/:id/resources", validateId, async (req, res) => {
+  try {
+    const resources = await Resources.findByProject(req.project.id);
+    return res.status(200).json(resources);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+Router.get("/:id/tasks", validateId, async (req, res) => {
+  try {
+    const tasks = await getTasks(req.project.id);
+    req.project.tasks = tasks;
+    return res.status(200).json(tasks);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+Router.post("/", async (req, res) => {
+  const { name, description, completed } = req.body;
+
+  if (!name)
+    return res
+      .status(500)
+      .json({ message: "Please add a name for this project" });
+
+  try {
+    const project = await addProject({
+      name,
+      description,
+      completed: completed ? completed : false,
+    });
+    return res.status(200).json(project);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
