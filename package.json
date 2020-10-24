@@ -12,7 +12,13 @@
     "pg": "^8.4.1",
     "sqlite3": "^5.0.0"
   },
-  "scripts": {"dev": "nodemon index.js", "start": "node index.js"},
+  "scripts": {
+    "dev": "nodemon index.js", 
+    "start": "node index.js", 
+    "rollback": "knex migrate:rollback", 
+    "latest": "knex migrate:latest", 
+    "seed": "knex seed:run"
+  },
   "devDependencies": {
     "nodemon": "^2.0.6"
   }
